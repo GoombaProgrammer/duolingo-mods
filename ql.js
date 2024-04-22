@@ -1,7 +1,6 @@
 // ==UserScript==
 // @name Duolingo voor Quallees (Qualleish)
 // @namespace duoqualleish
-// @author IMUSING AKA I AM NOT FUNNY ON CONLANG DISCORD AKA GOOMBAPROGRAMMER ON GITHUB
 // @description Een script dat Duolingo Engels naar Quallees vertaalt, zo dat je duolingo kan gebruiken om Quallees te leren.
 // @version 1
 // @grant none
@@ -12,46 +11,17 @@
 // I use a bad API to translate the words, it uses a nmt model in the backend, if it errors it just puts the english word back
 // so if you get the english sentence back, it's because my server errors :smile:
 
-objs = []; // store all objects to prevent circular references
-
-function walkTheObject( obj ) {
-    var keys = Object.keys( obj ); // get all own property names of the object
-
-    keys.forEach( function ( key ) {
-        var value = obj[ key ]; // get property value
-
-        // if the property value is an object...
-        if ( value && typeof value === 'object' ) { 
-
-            // if we don't have this reference...
-            if ( objs.indexOf( value ) < 0 ) {
-                objs.push( value ); // store the reference
-                walkTheObject( value ); // traverse all its own properties
-            } 
-
-        }
-    });
-}
-
 function disableAudio() {
-    // Detect audio every 250ms and disable it
-    setInterval(function() {
-        objs = [];
-        walkTheObject(window);
-
-        for (var i = 0; i < objs.length; i++) {
-            if (objs[i] instanceof Audio) {
-                // Set the src of the audio object to an empty string
-                objs[i].src = '';
-                objs[i].pause();
-            }
-        }
-    }, 250);
+    window.Audio.prototype.play = function() {
+        return;
+    };
 }
 
+var spans = [];
 function joinSpans() {
     // Select all single letter spans
     var singleLetterSpans = document.querySelectorAll('span');
+    spans = singleLetterSpans;
 
     // Initialize variables to store the current span and its text
     var currentSpan = null;
@@ -60,7 +30,7 @@ function joinSpans() {
     // Loop through each span
     for (var i = 0; i < singleLetterSpans.length; i++) {
         var span = singleLetterSpans[i];
-        
+
         // Check if the span contains a single letter
         if (span.innerText.length === 1) {
             // If it's the first single letter span encountered or it's consecutive to the previous one
@@ -72,10 +42,10 @@ function joinSpans() {
                 var newSpan = document.createElement('span');
                 newSpan.innerText = currentText;
                 currentSpan.parentNode.insertBefore(newSpan, currentSpan);
-                
+
                 // Remove the old individual single letter spans
                 currentSpan.remove();
-                
+
                 // Reset variables for the next sequence of single letter spans
                 currentSpan = span;
                 currentText = span.innerText;
@@ -115,15 +85,15 @@ function joinSpansInParentLangEn() {
      if (parentSpan) {
          // Select all single letter spans within the parent span
          var singleLetterSpans = parentSpan.querySelectorAll('span');
- 
+
          // Initialize variables to store the current span and its text
          var currentSpan = null;
          var currentText = '';
- 
+
          // Loop through each span within the parent span
          for (var i = 0; i < singleLetterSpans.length; i++) {
              var span = singleLetterSpans[i];
-             
+
              // Check if the span contains a single letter
              if (span.innerText.length === 1) {
                  // If it's the first single letter span encountered or it's consecutive to the previous one
@@ -135,10 +105,10 @@ function joinSpansInParentLangEn() {
                      var newSpan = document.createElement('span');
                      newSpan.innerText = currentText;
                      currentSpan.parentNode.insertBefore(newSpan, currentSpan);
-                     
+
                      // Remove the old individual single letter spans
                      currentSpan.remove();
-                     
+
                      // Reset variables for the next sequence of single letter spans
                      currentSpan = span;
                      currentText = span.innerText;
@@ -166,9 +136,8 @@ function joinSpansInParentLangEn() {
 }
 
 function translate_to_qualleish(sentence) {
-    // Actually, I don't want to make my api public to avoid spam
-    // maybe sometime I will idk
-    var url = "https://api/?q=" + sentence;
+    // blocking requests to the server
+    var url = "http://localhost/?q=" + sentence; // change this to the qualleish api
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, false);
     xhr.send();
@@ -184,8 +153,6 @@ spanCount = 0;
     if (window.location.href === oldHref) {
         return;
     }
-    // Get the <span> elements
-    var spans = document.querySelectorAll('span');
     // Check if the number of <span> elements has changed
     spanCount = spans.length;
     oldHref = window.location.href;
@@ -208,47 +175,51 @@ spanCount = 0;
     // learn page
     if (window.location.href.indexOf("/lesson") != -1) {
         setInterval(function() {
-            joinSpans();
-        }, 220);
+            if (window.location.href.indexOf("/lesson") != -1) {
+                joinSpans();
+            }
+        }, 5);
         // Check for words in a image-select exercise (<span style="font-size: 17px;">word</span>)
         setInterval(function() {
-            var spans = document.querySelectorAll('span');
-            for (var i = 0; i < spans.length; i++) {
-                if ((spans[i].style.fontSize === '17px' || spans[i].attributes['data-test'] && 
-                    (spans[i].attributes['data-test'].value === 'challenge-judge-text')) &&
-                    spans[i].style.fontSize !== '18px') {
-                    // Translate the word to Qualleish
-                    spans[i].innerText = translate_to_qualleish(spans[i].innerText);
-
-                    // Increase the font size to make the Qualleish text more readable
-                    spans[i].style.fontSize = '18px';
-                }
-            }
-            // questionSpan is the first child in class hSdm1
-            var questionSpan = document.querySelector('.hSdm1 span');
-            if (questionSpan) {
-                // Translate the question to Qualleish
-                questionSpan.innerText = translate_to_qualleish(questionSpan.innerText);
-            }
-            // Find "Schrijf dit in het Engels" span and translate it to "Schrijf dit in het Qualleish"
-            var found = false;
-            for (var i = 0; i < spans.length; i++) {
-                if (spans[i].innerText === 'Schrijf dit in het Engels' || spans[i].innerText === 'Schrijf dit in het Qualleish') {
-                    spans[i].innerText = 'Schrijf dit in het Qualleish';
-                    found = true;
-                }
-            }
-
-            // If the translation was found, translate data-test="challenge-tap-token-text"
-            if (found) {
+            if (window.location.href.indexOf("/lesson") != -1) {
                 for (var i = 0; i < spans.length; i++) {
-                    if (spans[i].attributes['data-test'] && spans[i].attributes['data-test'].value === 'challenge-tap-token-text' && !spans[i].attributes['translated']) {
+                    if ((spans[i].style.fontSize === '17px' || spans[i].attributes['data-test'] &&
+                        (spans[i].attributes['data-test'].value === 'challenge-judge-text')) &&
+                        spans[i].style.fontSize !== '18px') {
+                        // Translate the word to Qualleish
                         spans[i].innerText = translate_to_qualleish(spans[i].innerText);
-                        spans[i].attributes['translated'] = true;
+
+                        // Increase the font size to make the Qualleish text more readable
+                        spans[i].style.fontSize = '18px';
+                    }
+                }
+                // questionSpan is the first child in class hSdm1
+                var questionSpan = document.querySelector('.hSdm1 span');
+                if (questionSpan && !questionSpan.attributes['translated']) {
+                    // Translate the question to Qualleish
+                    questionSpan.innerText = translate_to_qualleish(questionSpan.innerText);
+                    questionSpan.attributes['translated'] = true;
+                }
+                // Find "Schrijf dit in het Engels" span and translate it to "Schrijf dit in het Qualleish"
+                var found = false;
+                for (var i = 0; i < spans.length; i++) {
+                    if (spans[i].innerText === 'Schrijf dit in het Engels' || spans[i].innerText === 'Schrijf dit in het Qualleish') {
+                        spans[i].innerText = 'Schrijf dit in het Qualleish';
+                        found = true;
+                    }
+                }
+
+                // If the translation was found, translate data-test="challenge-tap-token-text"
+                if (found) {
+                    for (var i = 0; i < spans.length; i++) {
+                        if (spans[i].attributes['data-test'] && spans[i].attributes['data-test'].value === 'challenge-tap-token-text' && !spans[i].attributes['translated']) {
+                            spans[i].innerText = translate_to_qualleish(spans[i].innerText);
+                            spans[i].attributes['translated'] = true;
+                        }
                     }
                 }
             }
-        }, 500);
+        }, 10);
     }
     }, 1000);
 }
